@@ -1,0 +1,13 @@
+{
+  "name": "agentic-sdlc",
+  "owner": {
+    "name": "Matt Schabowsky"
+  },
+  "plugins": [
+    {
+      "name": "sdlc-workflow",
+      "source": "./plugin/sdlc-workflow",
+      "description": "Spec-driven agentic SDLC skills: /spec-design, /spec, /grill-with-docs, /decompose, /build, /sync-docs, /verify-context, /distill-context, /setup-project, /audit-design, /review-fix-loop, /worktree-hygiene, /env-handoff, /delegated-work-audit, /linear-implementation-audit, /update-skills"
+    }
+  ]
+}

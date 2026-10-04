@@ -1,8 +1,9 @@
 ---
 name: grill-with-docs
-version: 1.0.0
-description: Interview the user relentlessly about a plan or design until reaching shared understanding, resolving each branch of the decision tree — while maintaining a running project glossary and recording ADRs for decisions that are hard to reverse, surprising, and a genuine tradeoff. Use when user wants to stress-test a plan, get grilled on their design, or mentions "grill me". Supports --batch flag for human design sessions. Replaces /grill-me; the interview mechanic is unchanged, glossary and ADR maintenance are adapted from mattpocock/skills (grill-with-docs / grilling / domain-modeling).
+version: 1.0.1
+description: Interview the user relentlessly about a plan or design until reaching shared understanding, resolving each branch of the decision tree — while maintaining a running project glossary and recording ADRs for decisions that are hard to reverse, surprising, and a genuine tradeoff. Use when user wants to stress-test a plan, get grilled on their design, or mentions "grill me". Supports --batch flag for human design sessions. Replaces /grill-me.
 changelog:
+  - "1.0.1 (2026-10-04): Shortened the description to under 500 characters so claude.ai stores it in full. The attribution moved here: glossary and ADR maintenance are adapted from mattpocock/skills (grill-with-docs / grilling / domain-modeling)."
   - "1.0.0 (2026-09-01): Replaces /grill-me. Same interview mechanic (one-at-a-time / --batch, recommended answers, facts-vs-decisions, decision-tree resolution) plus two additions: glossary maintenance (glossary.md) and ADR creation (adr/) for qualifying decisions, resolved live during the interview rather than as a wrap-up step."
 ---
 

@@ -1,8 +1,12 @@
-# Mirrors main to cailum-blue/agentic-sdlc, with one commit on top (scripts/work-mirror-overlay.py) that
-# keeps the work repo's install path: cailum-blue/agentic-sdlc, marketplace name sw-development-process.
-# Needs the CAILUM_MIRROR_TOKEN secret: a fine-grained token with Contents read and write on
-# cailum-blue/agentic-sdlc only.
-name: Mirror to cailum-blue
+# Keeps cailum-blue/agentic-sdlc in step with this repo through a sync PR.
+# cailum-blue requires a reviewed PR into main and signed commits on every branch, so this cannot
+# force-push. Instead, on every push to main it applies scripts/work-mirror-overlay.py (the work
+# repo installs from cailum-blue/agentic-sdlc, marketplace name sw-development-process) and
+# scripts/sync-to-work-repo.py opens or refreshes one PR from the branch mirror/sync, with a commit
+# GitHub signs. A teammate approves and merges it.
+# Needs the CAILUM_MIRROR_TOKEN secret: a fine-grained token on cailum-blue/agentic-sdlc only, with
+# Contents and Pull requests read and write.
+name: Sync to cailum-blue
 
 on:
   push:
@@ -10,38 +14,46 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: mirror-to-cailum-blue
+  group: sync-to-cailum-blue
   cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
-  mirror:
-    # the mirrored copy carries this file too; never run it there
+  sync:
+    # the work repo gets the scripts but not this workflow; guard anyway
     if: github.repository == 'mschabow/agentic-sdlc'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          path: src
           persist-credentials: false
 
-      - name: Apply the work-repo overlay
-        run: |
-          git config user.name "agentic-sdlc mirror"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          python3 scripts/work-mirror-overlay.py
-          git add -A
-          git commit -m "Work-repo overlay: install from cailum-blue/agentic-sdlc" -m "Mirror of mschabow/agentic-sdlc@${GITHUB_SHA::7}. Change the personal repo; this commit is rebuilt on every push."
-
-      - name: Push to cailum-blue/agentic-sdlc
+      - name: Check the token
         env:
           MIRROR_TOKEN: ${{ secrets.CAILUM_MIRROR_TOKEN }}
         run: |
           if [ -z "$MIRROR_TOKEN" ]; then
-            echo "::error::Add the CAILUM_MIRROR_TOKEN secret (Contents read/write on cailum-blue/agentic-sdlc)"
+            echo "::error::Add the CAILUM_MIRROR_TOKEN secret (Contents and Pull requests read/write on cailum-blue/agentic-sdlc)"
             exit 1
           fi
-          git push --force "https://x-access-token:${MIRROR_TOKEN}@github.com/cailum-blue/agentic-sdlc.git" HEAD:refs/heads/main
+
+      - uses: actions/checkout@v4
+        with:
+          repository: cailum-blue/agentic-sdlc
+          ref: main
+          path: work
+          token: ${{ secrets.CAILUM_MIRROR_TOKEN }}
+          persist-credentials: false
+
+      - name: Apply the work-repo overlay
+        run: python3 src/scripts/work-mirror-overlay.py
+
+      - name: Open or refresh the sync PR
+        env:
+          GH_TOKEN: ${{ secrets.CAILUM_MIRROR_TOKEN }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: python3 src/scripts/sync-to-work-repo.py src work

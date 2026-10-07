@@ -1,7 +1,7 @@
 {
   "name": "sdlc-workflow",
-  "version": "2.1.2",
-  "description": "Spec-driven agentic SDLC workflow: design phase (/spec-design, /spec, /grill-with-docs, /decompose), build phase (/build orchestrates Sonnet build subagents, Opus review, and a collector branch; /verify-context, /distill-context, /sync-docs), plus /setup-project, /audit-design, /update-skills (refresh installed skills, find stale copies), and shared utilities (/review-fix-loop, /worktree-hygiene, /env-handoff, /delegated-work-audit, /linear-implementation-audit). Canonical source and docs: github.com/mschabow/agentic-sdlc.",
+  "version": "2.1.3",
+  "description": "Spec-driven agentic SDLC workflow: design phase (/spec-design, /spec, /grill-with-docs, /decompose), build phase (/build orchestrates Sonnet build subagents, Opus review, and a collector branch; /verify-context, /distill-context, /sync-docs), plus /setup-project, /audit-design, /update-skills (refresh installed skills, find stale copies), /feature-status (feature x surface build status), and shared utilities (/review-fix-loop, /worktree-hygiene, /env-handoff, /delegated-work-audit, /linear-implementation-audit). Canonical source and docs: github.com/mschabow/agentic-sdlc.",
   "author": {
     "name": "Matt Schabowsky"
   }

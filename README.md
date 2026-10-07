@@ -8,7 +8,7 @@ The merge principle: our process supplies the design-to-build pipeline (spec dis
 
 This repo ships as a Claude Code plugin, not something you clone into each codebase. Two steps bring the workflow into a project:
 
-1. **Install the plugin** (once per machine): `/plugin marketplace add mschabow/agentic-sdlc`, then `/plugin install sdlc-workflow@agentic-sdlc`. This makes `/spec-design`, `/spec`, `/grill-with-docs`, `/decompose`, `/build`, `/sync-docs`, `/verify-context`, `/distill-context`, `/setup-project`, `/audit-design`, `/update-skills`, plus the shared utility skills `/review-fix-loop`, `/worktree-hygiene`, `/env-handoff`, `/delegated-work-audit`, and `/linear-implementation-audit` available in every Claude Code session on that machine. Full install and update steps: [rollout.md](rollout.md).
+1. **Install the plugin** (once per machine): `/plugin marketplace add mschabow/agentic-sdlc`, then `/plugin install sdlc-workflow@agentic-sdlc`. This makes `/spec-design`, `/spec`, `/grill-with-docs`, `/decompose`, `/build`, `/sync-docs`, `/verify-context`, `/distill-context`, `/setup-project`, `/audit-design`, `/update-skills`, plus the shared utility skills `/review-fix-loop`, `/worktree-hygiene`, `/env-handoff`, `/delegated-work-audit`, `/linear-implementation-audit` and `/feature-status` available in every Claude Code session on that machine. Full install and update steps: [rollout.md](rollout.md).
 2. **Bootstrap the target repo**: open Claude Code in the codebase you want this running against and run `/setup-project`. It scaffolds `AGENTS.md`, creates a `designs/` folder, and walks through wiring up Linear MCP, the Drive connector, branch protection, and agent identities. Full steps: [setup.md](setup.md).
 
 Run a throwaway design ticket through `/spec-design` first to confirm everything's wired up, then start real feature work: `/spec-design` → merged design PR → `/decompose` → `/build` per implementation ticket.
@@ -139,6 +139,7 @@ flowchart TB
 | /audit-design | Interactive whole-codebase audit: reconciles stale docs, cleans up dangling code, backfills specs for undocumented features. Run on demand, not part of the per-feature loop — see [workflows/doc-ops-agent.md](workflows/doc-ops-agent.md) for how it differs from /doc-ops |
 | /setup-project | Bootstraps a new repo; pins skill versions when needed |
 | /update-skills | Run after a skill PR merges: refreshes the marketplace, updates the installed plugin, and finds stale duplicate copies (loose `~/.claude` files, claude.ai-synced skills, repo copies) that can shadow it |
+| /feature-status | Feature-by-surface build status for a product feature: maps spec stories to tickets and PRs, flags journeys with no surface, lists merge, deploy and pilot gates, and republishes one status page |
 | `.claude/commands/` (this repo) | Canonical source for all workflow skills — versioned, eval-gated |
 | `.claude/evals/` (this repo) | Eval cases per skill, plus incident-derived evals |
 | `.claude/hooks/` (per repo) | Deterministic guardrails and approval gates — see [hooks.md](hooks.md) |

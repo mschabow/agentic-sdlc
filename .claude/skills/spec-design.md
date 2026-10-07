@@ -1,8 +1,9 @@
 ---
 name: spec-design
-version: 1.3.0
+version: 1.4.0
 description: "Entry point for the design phase. Orchestrates the full design loop for a feature: pulls the design ticket, checks if lightweight path applies, runs /spec, does a broad context pass, runs /grill-with-docs, produces spec.md + context.md with a draft test list, and guides to the design PR. Run this at the start of any design ticket."
 changelog:
+  - "1.4.0 (2026-10-07): Step 8 asks whether the design needs a PR for lead review or a commit only. PR stays the recommendation for shared or restricted areas or ADRs needing sign-off; the commit-only path records the approval route in spec.md's Status line before /decompose. Pushing is confirmed with the human either way."
   - "1.3.0 (2026-10-01): New step 0 — the design phase always starts in a fresh git worktree named after the ticket, branched off a freshly fetched origin/<default-branch>, with the base verified before anything else. Lightweight path check moves to step 0.5."
   - "1.2.0 (2026-09-01): Renamed from /design to /spec-design to avoid any ambiguity with Claude Code's built-in Design-canvas skill. Step 5 now runs /grill-with-docs (replaces /grill-me) — same interview, plus glossary and ADR maintenance."
   - "1.1.0 (2026-06-18): Added lightweight path check (step 0); added draft test list production after /grill-me (step 5.5); added --batch option for /grill-me; added test list to design PR checklist"
@@ -111,13 +112,19 @@ Run `ci/validate-context.sh` locally before presenting it.
 
 Present context.md for human confirmation. Revise until approved.
 
-## 8 — Commit and push design PR
+## 8 — Commit, and open a design PR if one is needed
 
-Commit spec.md and context.md on the worktree branch from step 0 (rename it first if it doesn't match the AGENTS.md branch naming convention). Push and open the design PR with a description that:
+Ask: "Does this design need a PR for lead review, or should I commit only?" Recommend a PR when the design touches shared or restricted areas (per AGENTS.md) or includes ADRs that need sign-off. Commit-only is reasonable when the human is the approver, or when approval happens in a separate review session.
+
+Either way, commit spec.md, context.md, and any ADR or glossary changes on the worktree branch from step 0 (rename it first if it doesn't match the AGENTS.md branch naming convention). Ask before pushing.
+
+**If a PR is needed:** push and open the design PR with a description that:
 - Summarises the feature
 - Links the Linear ticket
 - Confirms the draft test list is included in spec.md
 - Links any ADRs written during /grill-with-docs, and notes any glossary terms pinned
 - Notes this is a design-only PR
 
-Tell the human: next step is lead review of the design PR. After it merges, run `/decompose` to create implementation tickets.
+Tell the human: the next step is lead review of the design PR. After it merges, run `/decompose` to create implementation tickets.
+
+**If commit-only:** record in spec.md's **Status** line who approves the design and how (e.g. "Approved by <name> in sign-off review"). Tell the human: run `/decompose` once that approval is recorded. Note that `/decompose` assumes a merged design, so its PR check should be skipped by pointing it at the committed branch.

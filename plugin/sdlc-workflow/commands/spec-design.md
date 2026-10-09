@@ -1,8 +1,9 @@
 ---
 name: spec-design
-version: 1.5.0
+version: 1.5.1
 description: "Entry point for the design phase. Orchestrates the full design loop for a feature: pulls the design ticket, checks if lightweight path applies, runs /spec, does a broad context pass, runs /grill-with-docs, produces spec.md + context.md with a draft test list, and guides to the design PR. Works with Linear or GitHub Issues. Run this at the start of any design ticket."
 changelog:
+  - "1.5.1 (2026-10-09): Commit-only path closes the GitHub design issue (after a yes) once the approval is recorded, since there is no PR to close it."
   - "1.5.0 (2026-10-09): Works with GitHub Issues as well as Linear. New Ticket tracker section; step 0 accepts `#12` as the ticket ID; steps 1, 3 and 4 read from the tracker; the design PR uses `[#<issue>]` and `Closes #<issue>` with GitHub Issues. Linear behaviour is unchanged."
   - "1.4.0 (2026-10-07): Step 8 asks whether the design needs a PR for lead review or a commit only. PR stays the recommendation for shared or restricted areas or ADRs needing sign-off; the commit-only path records the approval route in spec.md's Status line before /decompose. Pushing is confirmed with the human either way."
   - "1.3.0 (2026-10-01): New step 0 — the design phase always starts in a fresh git worktree named after the ticket, branched off a freshly fetched origin/<default-branch>, with the base verified before anything else. Lightweight path check moves to step 0.5."
@@ -159,3 +160,5 @@ Either way, commit spec.md, context.md, and any ADR or glossary changes on the w
 Tell the human: the next step is lead review of the design PR. After it merges, run `/decompose` to create implementation tickets.
 
 **If commit-only:** record in spec.md's **Status** line who approves the design and how (e.g. "Approved by <name> in sign-off review"). Tell the human: run `/decompose` once that approval is recorded. Note that `/decompose` assumes a merged design, so its PR check should be skipped by pointing it at the committed branch.
+
+With GitHub Issues, a design PR closes the design issue through `Closes #<issue>`. Commit-only has no PR, so close it yourself once the approval is recorded in spec.md and the commit is pushed. Ask first, then run `gh issue close <issue> --comment "Design approved by <who>. Committed on <branch> at <short sha>. Next: /decompose."`. If the approval is still pending, leave the issue open and tell the human to close it when the approval is recorded.

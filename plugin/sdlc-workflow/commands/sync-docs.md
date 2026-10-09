@@ -1,8 +1,9 @@
 ---
 name: sync-docs
-version: 1.0.0
+version: 1.1.0
 description: Compare implementation changes on the current branch against design docs (spec.md, context.md). Surface discrepancies with solution options (pros/cons + recommended fix) and flag missing implementation details in docs. Resolve each issue interactively before advancing to the PR. Run as the last step of /build before opening a PR.
 changelog:
+  - "1.1.0 (2026-10-09): Works with GitHub Issues as well as Linear: picks the tracker from AGENTS.md's `## Tickets` section, or uses GitHub Issues when there is no such section and no Linear MCP (deferred tools count as Linear). Linear behaviour is unchanged."
   - "1.0.0 (2026-09-01): Added to the canonical skill set. Was already referenced by /build's description and by audit-design's Step 3 format; now has a matching file so both references resolve to something real."
 ---
 
@@ -12,11 +13,25 @@ Subagent handoff rule: if you delegate any read or search work, pass only the fi
 
 ---
 
+## Ticket tracker
+
+Before you read or write a ticket, find out which tracker this repo uses:
+
+- **GitHub Issues** if AGENTS.md has a `## Tickets` section that says GitHub Issues.
+- **Linear** if that section says Linear. If the Linear tools are not available, stop and ask. Do not fall back to GitHub Issues.
+- **No `## Tickets` section:** look for Linear MCP tools, including deferred ones (search for "linear" with ToolSearch). If they exist, use Linear, even if they need authentication first. If there are none, use GitHub Issues and say so in one line.
+
+With Linear, the Linear steps in this skill apply unchanged.
+
+With GitHub Issues, a ticket ID is the issue number (`#12`), and each "Linear" step in this skill means the GitHub issue. Read an issue with `gh issue view 12 --comments`. Search with `gh issue list --search "<terms>" --state all`.
+
+`gh` must act as the account that owns the repo. If the active `gh` account is a different one (for example a work account on a personal repo) and no hook sets `GH_TOKEN`, prefix each `gh` command with `GH_TOKEN=$(gh auth token --user <owner>)`. Never run `gh auth switch`; it changes the account for every other session.
+
 ## Step 1 — Locate the design docs
 
 Find the feature's design folder. Try in order:
 1. Read context.md in the current working directory or `designs/<feature>/`
-2. Check the Linear ticket (already pulled in this session) for the `designs/` path
+2. Check the ticket (Linear or GitHub issue, already pulled in this session) for the `designs/` path
 3. If still not found, ask: "Where is the designs folder for this feature?"
 
 Read `spec.md` and `context.md` in full. Note any other documents linked or referenced inside them (Drive docs, ADRs, etc.) — fetch those too.

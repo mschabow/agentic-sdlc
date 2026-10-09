@@ -1,8 +1,9 @@
 ---
 name: spec-design
-version: 1.4.0
-description: "Entry point for the design phase. Orchestrates the full design loop for a feature: pulls the design ticket, checks if lightweight path applies, runs /spec, does a broad context pass, runs /grill-with-docs, produces spec.md + context.md with a draft test list, and guides to the design PR. Run this at the start of any design ticket."
+version: 1.5.0
+description: "Entry point for the design phase. Orchestrates the full design loop for a feature: pulls the design ticket, checks if lightweight path applies, runs /spec, does a broad context pass, runs /grill-with-docs, produces spec.md + context.md with a draft test list, and guides to the design PR. Works with Linear or GitHub Issues. Run this at the start of any design ticket."
 changelog:
+  - "1.5.0 (2026-10-09): Works with GitHub Issues as well as Linear. New Ticket tracker section; step 0 accepts `#12` as the ticket ID; steps 1, 3 and 4 read from the tracker; the design PR uses `[#<issue>]` and `Closes #<issue>` with GitHub Issues. Linear behaviour is unchanged."
   - "1.4.0 (2026-10-07): Step 8 asks whether the design needs a PR for lead review or a commit only. PR stays the recommendation for shared or restricted areas or ADRs needing sign-off; the commit-only path records the approval route in spec.md's Status line before /decompose. Pushing is confirmed with the human either way."
   - "1.3.0 (2026-10-01): New step 0 — the design phase always starts in a fresh git worktree named after the ticket, branched off a freshly fetched origin/<default-branch>, with the base verified before anything else. Lightweight path check moves to step 0.5."
   - "1.2.0 (2026-09-01): Renamed from /design to /spec-design to avoid any ambiguity with Claude Code's built-in Design-canvas skill. Step 5 now runs /grill-with-docs (replaces /grill-me) — same interview, plus glossary and ADR maintenance."
@@ -12,9 +13,39 @@ changelog:
 
 You are orchestrating the full design phase. Follow these steps in order — do not skip any.
 
+## Ticket tracker
+
+Before you read or write a ticket, find out which tracker this repo uses:
+
+- **GitHub Issues** if AGENTS.md has a `## Tickets` section that says GitHub Issues.
+- **Linear** if that section says Linear. If the Linear tools are not available, stop and ask. Do not fall back to GitHub Issues.
+- **No `## Tickets` section:** look for Linear MCP tools, including deferred ones (search for "linear" with ToolSearch). If they exist, use Linear, even if they need authentication first. If there are none, use GitHub Issues and say so in one line.
+
+With Linear, the Linear steps in this skill apply unchanged.
+
+With GitHub Issues, do each "Linear" step in this skill with `gh`:
+
+| Linear | GitHub Issues |
+|---|---|
+| Ticket ID `ENG-123` | Issue number `#12` |
+| Pull a ticket | `gh issue view 12 --comments` |
+| Search tickets | `gh issue list --search "<terms>" --state all` |
+| Create a ticket | `gh issue create --title "<title>" --body-file <file> --label <label>` |
+| Post a status update or comment | `gh issue comment 12 --body-file <file>` |
+| Close a ticket | `gh issue close 12 --comment "<reason>"`; add `--reason "not planned"` for obsolete work |
+| Status (Backlog, In Review, Done) | Open with no PR, open with an open PR, closed |
+| Parent and children | A `Parent: #<n>` line in the child's body, and a task list of the children in the parent's body |
+| `blocked by` / `blocks` | A `Blocked by: #<n>` line in the issue body |
+| Labels such as `agent-ready` | The labels AGENTS.md lists (`gh label list`). If a label does not exist, write it as a line in the body (`Routing: agent-ready`). Do not create labels without a yes. |
+| Project or milestone | A milestone or a label (`gh issue list --milestone <m>` or `--label <l>`) |
+
+Unless AGENTS.md says otherwise, branches are `<area>/<issue>-<slug>` (for example `sync/12-google-push-channel`), PR titles are `[#<issue>] Title`, and the PR body has `Closes #<issue>`. Drop the `#` in branch, worktree, and file names (`12-google-push-channel`).
+
+`gh` must act as the account that owns the repo. If the active `gh` account is a different one (for example a work account on a personal repo) and no hook sets `GH_TOKEN`, prefix each `gh` command with `GH_TOKEN=$(gh auth token --user <owner>)`. Never run `gh auth switch`; it changes the account for every other session.
+
 ## 0 — Start in a fresh worktree
 
-Before anything else, ask: "What is the Linear ticket ID for this design?" Then create an isolated git worktree for the design work, named after the ticket (e.g. `eng-123-<short-slug>`):
+Before anything else, find the ticket tracker (see Ticket tracker) and ask: "What is the ticket ID for this design?" (`ENG-123` in Linear, `#12` in GitHub Issues). Then create an isolated git worktree for the design work, named after the ticket (e.g. `eng-123-<short-slug>`, or `12-<short-slug>` for a GitHub issue):
 
 - **Preferred:** use the EnterWorktree tool with the ticket-based name.
 - **Fallback:** run `git fetch origin`, then `git worktree add -b <branch> ../<worktree-name> origin/<default-branch>`, and switch to that directory. Find the default branch with `git symbolic-ref refs/remotes/origin/HEAD` (or `gh repo view --json defaultBranchRef`).
@@ -43,7 +74,7 @@ If any condition is false, proceed with the full design loop without asking.
 
 ## 1 — Pull the ticket
 
-Pull the ticket from step 0 via the Linear MCP: title, description, sources, and any linked PRD.
+Pull the ticket from step 0 from the tracker (the Linear MCP, or `gh issue view <n> --comments`): title, description, sources, and any linked PRD.
 
 If the Drive feature subfolder doesn't exist yet (check the ticket's Sources field), ask the human to create it now per [drive-conventions.md] before continuing.
 
@@ -53,7 +84,7 @@ Read AGENTS.md at the repo root. Note build commands, branch naming, and any res
 
 ## 3 — /spec
 
-Run the /spec skill in full: ask "What do you want to build or change?", explore the codebase for contact points and side effects, check Linear and Drive, ask clarifying questions one at a time, and produce user stories with acceptance criteria.
+Run the /spec skill in full: ask "What do you want to build or change?", explore the codebase for contact points and side effects, check the tracker and Drive, ask clarifying questions one at a time, and produce user stories with acceptance criteria.
 
 Wait for human confirmation before proceeding.
 
@@ -62,7 +93,7 @@ Wait for human confirmation before proceeding.
 Do a broad context gather anchored on the /spec draft:
 - Codebase: full files for the contact points identified in /spec, plus surrounding context for side effects
 - Google Drive: the feature subfolder and `_evergreen/`
-- Linear: ticket history, linked PRD, related tickets
+- The tracker: ticket history, linked PRD, related tickets
 - Web search and Context7/MCPs for current library and API documentation relevant to the spec
 
 Slack is not a context source. If anything important lives only in Slack, ask the human to capture it in Drive first.
@@ -120,7 +151,7 @@ Either way, commit spec.md, context.md, and any ADR or glossary changes on the w
 
 **If a PR is needed:** push and open the design PR with a description that:
 - Summarises the feature
-- Links the Linear ticket
+- Links the ticket. With GitHub Issues: title the PR `[#<issue>] <title>` and put `Closes #<issue>` in the body
 - Confirms the draft test list is included in spec.md
 - Links any ADRs written during /grill-with-docs, and notes any glossary terms pinned
 - Notes this is a design-only PR

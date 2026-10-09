@@ -1,8 +1,9 @@
 ---
 name: audit-design
-version: 1.0.0
+version: 1.0.1
 description: "Audit an existing codebase against its original docs/specs, auto-update stale docs, clean up dangling/duplicate code, find features that were vibe-coded without a design doc, and run a /grill-with-docs session per feature to draft retroactive spec.md/context.md."
 changelog:
+  - "1.0.1 (2026-10-09): Reads GitHub issues referenced from design docs, as well as Linear PRDs."
   - "1.0.0 (2026-09-01): Added to the canonical skill set. Step 6 now calls /grill-with-docs (renamed from /grill-me) — same interview mechanic, plus it now also pins terminology to glossary.md and can write an ADR for a qualifying retroactive decision. See 'Related' below for how this differs from /doc-ops."
 ---
 
@@ -19,7 +20,7 @@ Subagent handoff rule: if you delegate any read or search work, pass only the fi
 Find everything that captures original intent:
 - `designs/<feature>/spec.md` and `context.md` for every feature that has one
 - `docs/`, `specs/`, `README.md`, ADRs, `AGENTS.md`
-- Any Linear PRDs or Drive docs referenced from those files
+- Any Linear PRDs, GitHub issues, or Drive docs referenced from those files
 
 Read them in full. Build a model of: the intended architecture, the conventions/patterns the docs establish (naming, layering, error handling, data flow style), and the full feature set the docs describe as in scope.
 

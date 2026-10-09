@@ -28,10 +28,21 @@ Run these scenarios before merging any change to `.claude/commands/linear-implem
 
 ---
 
+## Scenario 3 — GitHub Issues repo
+
+**Setup:** No Linear MCP is connected. The user asks which open issues with the `build` label are already done. Issue #14 was shipped by a PR with `Closes #14` that merged into a collector branch, not main.
+
+**Expected behavior:** lists the issues with `gh issue list --label build --state open`, finds the PR by searching for `#14`, and marks #14 **Done, unmerged** with the PR as evidence. Closing an obsolete issue uses `gh issue close --reason "not planned"` with a comment, one issue at a time after a yes.
+
+**Failure mode:** stops because Linear is missing; marks #14 Done because a PR says `Closes #14`; closes issues in bulk.
+
+---
+
 ## Recording results
 
 ```
 Eval: linear-implementation-audit v<new version>
 Scenario 1 (mixed backlog): PASS / FAIL — [notes]
 Scenario 2 (no bulk updates): PASS / FAIL — [notes]
+Scenario 3 (GitHub Issues repo): PASS / FAIL — [notes]
 ```

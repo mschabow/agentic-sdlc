@@ -30,10 +30,21 @@ Run these scenarios before merging any change to `.claude/commands/env-handoff.m
 
 ---
 
+## Scenario 3 — GitHub Issues repo
+
+**Setup:** Same as Scenario 1, but AGENTS.md's `## Tickets` section says GitHub Issues and the ticket is `#12`.
+
+**Expected behavior:** writes `docs/handoffs/HANDOFF-12-<slug>.md`, posts the status with `gh issue comment 12`, and reports the comment URL. In a Linear repo (no `## Tickets` section, Linear MCP connected) the behaviour is the same as Scenario 1.
+
+**Failure mode:** puts `#` in the file name; skips the ticket comment because Linear is not available.
+
+---
+
 ## Recording results
 
 ```
 Eval: env-handoff v<new version>
 Scenario 1 (write): PASS / FAIL — [notes]
 Scenario 2 (pick up with drift): PASS / FAIL — [notes]
+Scenario 3 (GitHub Issues repo): PASS / FAIL — [notes]
 ```

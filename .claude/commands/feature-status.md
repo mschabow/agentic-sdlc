@@ -1,8 +1,9 @@
 ---
 name: feature-status
-version: 1.0.0
-description: Show the build status of a product feature, story by story and surface by surface (backend, web, Slack, jobs), across every slice, wave and platform ticket. Gathers status from Linear, GitHub and the specs, flags user journeys that have no surface, and publishes or updates one shareable status page. Use when the user asks "where are we", "what's built", "feature status", "build status", or wants a progress view for a feature or project.
+version: 1.1.0
+description: Show the build status of a product feature, story by story and surface by surface (backend, web, Slack, jobs), across every slice, wave and platform ticket. Gathers status from Linear or GitHub Issues, GitHub PRs and the specs, flags user journeys that have no surface, and publishes or updates one shareable status page. Use when the user asks "where are we", "what's built", "feature status", "build status", or wants a progress view for a feature or project.
 changelog:
+  - "1.1.0 (2026-10-09): Works with GitHub Issues as well as Linear: picks the tracker from AGENTS.md's `## Tickets` section, or uses GitHub Issues when there is no such section and no Linear MCP (deferred tools count as Linear). Linear behaviour is unchanged."
   - "1.0.0 (2026-10-07): First version, written from the People Planning slice 1 and wave A builds."
 ---
 
@@ -17,7 +18,7 @@ Report facts you have read. Never guess a status.
 ## 1 — Scope
 
 Work out the feature from the request or the current repo. Find:
-- **The Linear project:** where the tickets live.
+- **The tickets:** the Linear project, or for GitHub Issues the repo plus a milestone or label.
 - **The repo:** the code.
 - **The specs:** `designs/<feature>*/spec.md`. A feature can have several, such as slice 1 and slice 2 wave A.
 - **The integration branches:** for example `slice1`, `slice2-wave-a`, and `main`.
@@ -26,9 +27,25 @@ If any of these is ambiguous, ask once and then go on.
 
 If a status page for this feature already exists, update it instead of creating a new one. Find it with the Artifact tool's `list` action, matching on the title or on a link recorded in the spec.
 
+## Ticket tracker
+
+Before you read or write a ticket, find out which tracker this repo uses:
+
+- **GitHub Issues** if AGENTS.md has a `## Tickets` section that says GitHub Issues.
+- **Linear** if that section says Linear. If the Linear tools are not available, stop and ask. Do not fall back to GitHub Issues.
+- **No `## Tickets` section:** look for Linear MCP tools, including deferred ones (search for "linear" with ToolSearch). If they exist, use Linear, even if they need authentication first. If there are none, use GitHub Issues and say so in one line.
+
+With Linear, the Linear steps in this skill apply unchanged.
+
+With GitHub Issues, a ticket ID is the issue number (`#12`), and each "Linear" step in this skill means the GitHub issue. Read an issue with `gh issue view 12 --comments`. Search with `gh issue list --search "<terms>" --state all`.
+
+`gh` must act as the account that owns the repo. If the active `gh` account is a different one (for example a work account on a personal repo) and no hook sets `GH_TOKEN`, prefix each `gh` command with `GH_TOKEN=$(gh auth token --user <owner>)`. Never run `gh auth switch`; it changes the account for every other session.
+
 ## 2 — Gather (in parallel)
 
-- **Linear:** list every issue in the project, with id, title, status, labels, `parentId` and priority. A design ticket (title starts with "Design:") is the parent of its build tickets.
+- **Tickets:** list every issue in the project, with id, title, status, labels, parent and priority. A design ticket (title starts with "Design:") is the parent of its build tickets.
+  - Linear: `parentId` gives the parent.
+  - GitHub Issues: `gh issue list --state all --limit 500 [--milestone <m>] [--label <l>] --json number,title,state,labels,body,milestone`. The parent is the `Parent: #<n>` line or the design issue's task list. Status: closed is Done, open with an open PR is In Review, open with no PR is Backlog.
 - **GitHub:**
   - open PRs: number, title, base branch, draft flag, and CI state from `gh pr checks`;
   - merged PRs: number, title, base branch, merge date;
@@ -86,6 +103,6 @@ Don't repeat the whole table in chat.
 ## Rules
 
 - Read only. Don't change tickets, PRs or branches while building the status view.
-- Say so whenever a source couldn't be read (Linear disconnected, `gh` failing), and mark the affected cells "unknown". Never guess a status.
+- Say so whenever a source couldn't be read (Linear disconnected, `gh` failing or signed in as the wrong account), and mark the affected cells "unknown". Never guess a status.
 - Treat a ticket marked Done whose PR isn't merged as a discrepancy, and list it.
 - Keep names consistent with the spec's glossary.

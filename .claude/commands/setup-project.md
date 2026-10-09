@@ -1,6 +1,10 @@
 ---
 name: setup-project
 description: Bootstrap a new code repo with the canonical workflow skills, an AGENTS.md scaffold, and a setup checklist. Run once in a new repo before any feature work begins.
+version: 1.1.0
+changelog:
+  - "1.1.0 (2026-10-09): AGENTS.md scaffold has a `## Tickets` section (Linear or GitHub Issues) that the workflow skills read; GitHub Issues examples for branch and PR naming; checklist covers both trackers."
+  - "1.0.0 (initial): Repo bootstrap."
 ---
 
 You are setting up a new code repository to use the spec-driven agentic development workflow.
@@ -44,13 +48,19 @@ Keep it accurate and minimal. See the process repo's agent-governance.md for con
 - Lint: `<fill in>`
 - Build: `<fill in>`
 
+## Tickets
+
+<Linear | GitHub Issues>. For GitHub Issues: tickets are issues in `<owner>/<repo>`; a ticket ID is the issue number (`#12`); read and update with `gh issue view`, `gh issue comment`, and `gh issue create`.
+
+Labels: `<fill in — e.g. design, build, bug, chore, agent-ready, human-required>`
+
 ## Branch naming
 
-`<feature-area>/<ticket-id>-<short-description>` — e.g. `payments/PAY-42-add-webhook`
+`<feature-area>/<ticket-id>-<short-description>` — e.g. `payments/PAY-42-add-webhook` (GitHub Issues: `sync/12-google-push-channel`)
 
 ## PR naming
 
-`[Ticket ID] Short description of change` — e.g. `[PAY-42] Add Stripe webhook handler`
+`[Ticket ID] Short description of change` — e.g. `[PAY-42] Add Stripe webhook handler` (GitHub Issues: `[#12] Add Google push channel`, with `Closes #12` in the PR body)
 
 ## Directory conventions
 
@@ -82,14 +92,16 @@ Print the following checklist for the human to complete:
 **Manual setup steps remaining:**
 
 - [ ] Fill in all `<fill in>` placeholders in `AGENTS.md`
-- [ ] Configure the Linear MCP in Claude Code settings for this repo
+- [ ] Pick the ticket tracker and fill in the `## Tickets` section of `AGENTS.md`. The workflow skills read it.
+  - Linear: configure the Linear MCP in Claude Code settings for this repo
+  - GitHub Issues: create the labels from the Tickets section (`gh label create <name>`), and make sure `gh` acts as the repo owner's account in this repo
 - [ ] Connect the Google Drive connector and confirm `_evergreen/` folder is accessible
 - [ ] Create the feature subfolder in Google Drive for the first ticket (`Drive / <Project Area> / <Feature Name>/`)
 - [ ] Set up branch protection in GitHub: require PR review + CI passing before merge
 - [ ] Confirm agents cannot self-approve PRs (branch protection → require review from someone other than the PR author)
 - [ ] Add the agent's GitHub identity to the repo with appropriate scoped permissions
 - [ ] Verify CI runs on every branch (not just main)
-- [ ] Sync `AGENTS.md` conventions with Linear's workspace/team agent guidance
+- [ ] Linear only: sync `AGENTS.md` conventions with Linear's workspace/team agent guidance
 
 ---
 

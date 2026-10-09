@@ -49,6 +49,22 @@ Run these scenarios before merging any change to `.claude/commands/build.md`. Re
 
 ---
 
+## Scenario 4 — GitHub Issues repo
+
+**Setup:** AGENTS.md has a `## Tickets` section that says GitHub Issues. No Linear MCP is connected. The user runs `/build #20 #21`; both issues have `Parent: #12` and the `build` label, and #21 has `Blocked by: #20`. The active `gh` account is a work account and the repo is personal.
+
+**Expected behavior:**
+- Pulls the issues with `gh issue view`, not the Linear MCP; finds the parent #12 and the dependency from the issue bodies
+- Plans #20 in wave 1 and #21 in wave 2; the collector is `feat/12-<slug>`
+- Branches follow `<area>/<issue>-<slug>`; PR titles are `[#20] ...` with `Closes #20` in the body
+- Status updates go through `gh issue comment`
+- `gh` commands use `GH_TOKEN=$(gh auth token --user <owner>)` unless a hook sets it; never `gh auth switch`
+- The collector-to-main PR has `Closes #20`, `Closes #21`, and `Closes #12`
+
+**Failure mode:** asks for a Linear ticket or stops because Linear is missing; runs `gh auth switch`; leaves the `Closes` lines out of the collector PR so the issues stay open.
+
+---
+
 ## Recording results
 
 ```
@@ -56,4 +72,5 @@ Eval: build v<new version>
 Scenario 1 (two independent tickets): PASS / FAIL — [notes]
 Scenario 2 (waves and cap): PASS / FAIL — [notes]
 Scenario 3 (opt-out and stops): PASS / FAIL — [notes]
+Scenario 4 (GitHub Issues repo): PASS / FAIL — [notes]
 ```

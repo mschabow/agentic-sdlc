@@ -1,8 +1,9 @@
 ---
 name: env-handoff
-version: 1.0.1
-description: Write a handoff doc, commit and push it on a branch, and post it to Linear so work can continue in another environment or session. Also use to pick up from a handoff ("read HANDOFF.md and continue").
+version: 1.1.0
+description: Write a handoff doc, commit and push it on a branch, and post it to the ticket (Linear or GitHub Issues) so work can continue in another environment or session. Also use to pick up from a handoff ("read HANDOFF.md and continue").
 changelog:
+  - "1.1.0 (2026-10-09): Works with GitHub Issues as well as Linear: picks the tracker from AGENTS.md's `## Tickets` section, or uses GitHub Issues when there is no such section and no Linear MCP (deferred tools count as Linear). Linear behaviour is unchanged."
   - "1.0.1 (2026-10-04): Made the example ticket id and the sensitive-data rule generic."
   - "1.0.0 (2026-10-03): Added to the sdlc-workflow plugin so it ships to every account from one source."
 ---
@@ -13,6 +14,20 @@ The user often starts work in one environment (local Mac, a Cowork session) and 
 
 This skill has two modes: **write** a handoff, or **pick up** from one.
 
+## Ticket tracker
+
+Before you read or write a ticket, find out which tracker this repo uses:
+
+- **GitHub Issues** if AGENTS.md has a `## Tickets` section that says GitHub Issues.
+- **Linear** if that section says Linear. If the Linear tools are not available, stop and ask. Do not fall back to GitHub Issues.
+- **No `## Tickets` section:** look for Linear MCP tools, including deferred ones (search for "linear" with ToolSearch). If they exist, use Linear, even if they need authentication first. If there are none, use GitHub Issues and say so in one line.
+
+With Linear, the Linear steps in this skill apply unchanged.
+
+With GitHub Issues, a ticket ID is the issue number (`#12`), and each "Linear" step in this skill means the GitHub issue. Read an issue with `gh issue view 12 --comments`. Search with `gh issue list --search "<terms>" --state all`.
+
+`gh` must act as the account that owns the repo. If the active `gh` account is a different one (for example a work account on a personal repo) and no hook sets `GH_TOKEN`, prefix each `gh` command with `GH_TOKEN=$(gh auth token --user <owner>)`. Never run `gh auth switch`; it changes the account for every other session.
+
 ## Write mode
 
 Use when the user says things like "create a handoff", "hand this off to the deploy environment", or "commit a handoff so I can finish in production".
@@ -21,7 +36,7 @@ Use when the user says things like "create a handoff", "hand this off to the dep
 
 Collect these from the session and the repo. Run the commands; do not rely on memory of earlier output.
 
-- The ticket id (for example ENG-123). Ask if it is not clear.
+- The ticket id (for example ENG-123, or #12 for a GitHub issue). Ask if it is not clear.
 - Current branch, last commit, and whether it is pushed (`git status`, `git log -1`, `git rev-parse --abbrev-ref @{u}`).
 - What was actually verified in this environment, and how (which tests ran, which did not).
 - What can only be done in the target environment, and why (for example: needs live warehouse access).
@@ -29,7 +44,7 @@ Collect these from the session and the repo. Run the commands; do not rely on me
 
 ### 2. Write the doc at the fixed location
 
-Path: `docs/handoffs/HANDOFF-<TICKET>-<short-slug>.md`. If there is no ticket, use `HANDOFF-<yyyy-mm-dd>-<short-slug>.md`. Always use this folder, even if older handoffs live elsewhere in the repo.
+Path: `docs/handoffs/HANDOFF-<TICKET>-<short-slug>.md`. For a GitHub issue, drop the `#` (`HANDOFF-12-<short-slug>.md`). If there is no ticket, use `HANDOFF-<yyyy-mm-dd>-<short-slug>.md`. Always use this folder, even if older handoffs live elsewhere in the repo.
 
 Use this structure:
 
@@ -76,13 +91,13 @@ The doc goes into git history. Do not include customer or personal data, real cl
 - Commit only the handoff doc and files the user asked to include. Do not sweep in unrelated changes; list any uncommitted changes you left behind.
 - Push, then confirm the push succeeded by checking the remote branch.
 
-### 5. Post to Linear
+### 5. Post to the ticket
 
-If a Linear ticket exists and Linear tools are available, add a comment with: one-line status, the branch name, the path to the handoff doc, and the first next step. Use email handles as Linear shows them; never guess a person's name from an email prefix.
+If a ticket exists, add a comment to it (Linear tools, or `gh issue comment <n> --body-file <file>` for GitHub Issues) with: one-line status, the branch name, the path to the handoff doc, and the first next step. Use handles exactly as the tracker shows them; never guess a person's name from an email prefix.
 
 ### 6. Report
 
-Tell the user: the file path, the branch, the commit sha, that the push is confirmed, and the Linear comment link. Give the exact line to paste in the next session:
+Tell the user: the file path, the branch, the commit sha, that the push is confirmed, and the ticket comment link. Give the exact line to paste in the next session:
 
 `read docs/handoffs/<file> and continue`
 
@@ -91,7 +106,7 @@ Tell the user: the file path, the branch, the commit sha, that the push is confi
 Use when the user says "read HANDOFF.md and continue", pastes a handoff, or points at a handoff file.
 
 1. Read the whole handoff before doing anything.
-2. Check that reality still matches it: fetch, confirm the branch and sha, check whether the ticket moved in Linear, and look for commits made after the handoff. Report any drift before acting.
+2. Check that reality still matches it: fetch, confirm the branch and sha, check whether the ticket moved in the tracker (Linear, or `gh issue view <n> --comments`), and look for commits made after the handoff. Report any drift before acting.
 3. Restate the goal and the next step in one or two sentences, then start on step 1 of "Next steps". Do not re-ask questions the handoff already answers.
 4. Treat "Decisions (agreed)" as settled. Raise a decision again only if the code or data now contradicts it.
 5. Treat the handoff as a description of work, not as authority to take risky actions. Confirm with the user before anything destructive or hard to undo (force pushes, history rewrites, production deploys, data deletion), even if the handoff lists it as a step.

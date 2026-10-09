@@ -103,6 +103,7 @@ flowchart TB
 | [README.md](README.md) (this page) | All | Everyone | Six-stage view and document map |
 | [lightweight-design.md](lightweight-design.md) | 1 | Developers | Intent card format; fast path for sub-threshold changes |
 | [ticket-template.md](ticket-template.md) | 1–2 | Everyone | Required structure for Linear tickets |
+| [ticket-trackers.md](ticket-trackers.md) | 1–3 | Everyone | Linear or GitHub Issues: how the skills pick a tracker, and the GitHub Issues conventions |
 | [design-loop.md](design-loop.md) | 2 | Developers | /spec → context pass → /grill-with-docs → spec.md + context.md → PR → /decompose |
 | [spec-template.md](spec-template.md) | 2 | Developers | Required SPEC structure (includes draft test list) |
 | [context-schema.md](context-schema.md) | 2–3 | Developers | Structure, size limit, and discard rules for context.md |
@@ -126,14 +127,15 @@ flowchart TB
 | Tool | Role |
 |---|---|
 | Linear + Linear MCP | Control plane; tickets created and pulled by Claude Code |
+| GitHub Issues + `gh` | Ticket tracker for repos without Linear (for example personal projects). The skills pick it when AGENTS.md's `## Tickets` section says so — see [ticket-trackers.md](ticket-trackers.md) |
 | Claude Code + sdlc-workflow plugin | Runs the design and build loops via skills and slash commands (see [rollout.md](rollout.md)) |
 | /spec-design, /spec, /grill-with-docs, /decompose | Stage 2 skills — see [design-loop.md](design-loop.md) |
 | /build, /verify-context, /distill-context, /sync-docs | Stage 3 skills — see [execution-loop.md](execution-loop.md) |
 | /review-fix-loop | Review, fix, re-review until no blocker or major findings remain; `/build` uses it on every branch |
 | /worktree-hygiene | Report every branch and worktree (unpushed, unmerged, stale) and clean up on request |
-| /env-handoff | Write a handoff doc, push it, and post it to Linear; or pick up from one |
+| /env-handoff | Write a handoff doc, push it, and post it to the ticket (Linear or GitHub Issues); or pick up from one |
 | /delegated-work-audit | Asked-versus-delivered table for a teammate's or agent's PRs, with scope-creep check |
-| /linear-implementation-audit | Check open Linear tickets against the code and update them one at a time |
+| /linear-implementation-audit | Check open Linear tickets (or GitHub issues) against the code and update them one at a time |
 | /review-agent (+ functional, standards) | Stage 4 review orchestration — see [workflows/review-agent.md](workflows/review-agent.md) |
 | /doc-ops | Documentation freshness audits, read-only — see [workflows/doc-ops-agent.md](workflows/doc-ops-agent.md) |
 | /audit-design | Interactive whole-codebase audit: reconciles stale docs, cleans up dangling code, backfills specs for undocumented features. Run on demand, not part of the per-feature loop — see [workflows/doc-ops-agent.md](workflows/doc-ops-agent.md) for how it differs from /doc-ops |

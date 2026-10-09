@@ -1,8 +1,9 @@
 ---
 name: build
-version: 2.0.0
-description: "Entry point for the build phase. Orchestrates the full execution loop for one implementation ticket, a list, or a parent ticket with children: pulls the tickets, plans waves, runs /verify-context, does Pass 1 context gather, runs /distill-context, then builds each ticket with a Sonnet subagent in its own worktree, reviews each branch with a fresh Opus /code-review subagent, and merges into one collector branch that gets a single PR to main. Run this at the start of any implementation work."
+version: 2.1.0
+description: "Entry point for the build phase. Orchestrates the full execution loop for one implementation ticket, a list, or a parent ticket with children: pulls the tickets, plans waves, runs /verify-context, does Pass 1 context gather, runs /distill-context, then builds each ticket with a Sonnet subagent in its own worktree, reviews each branch with a fresh Opus /code-review subagent, and merges into one collector branch that gets a single PR to main. Works with Linear or GitHub Issues. Run this at the start of any implementation work."
 changelog:
+  - "2.1.0 (2026-10-09): Works with GitHub Issues as well as Linear. New Ticket tracker section: GitHub Issues when AGENTS.md's `## Tickets` section says so, or when there is no such section and no Linear MCP (deferred tools count as Linear). Issue numbers as IDs, `gh issue view` / `gh issue comment`, `[#<issue>]` PR titles with `Closes #<issue>`, and the collector PR repeats the `Closes` lines because GitHub only auto-closes on the default branch. Linear behaviour is unchanged."
   - "2.0.0 (2026-10-03): Orchestrated build. Accepts one ticket, a list, or a parent with children, and plans dependency waves. Each ticket is built by a Sonnet subagent in its own worktree (at most five at once), reviewed by a fresh Opus /code-review subagent through review-fix-loop, and merged into a collector branch; the orchestrator opens one collector-to-main PR and never merges it. New Defaults section lists the overrides. AGENTS.md can opt out of auto-merge with `build: no-auto-merge`."
   - "1.1.0 (2026-10-01): New step 0 — start in a fresh ticket-named worktree on a verified, current base."
   - "1.0.0 (initial): Single-ticket build loop."
@@ -24,21 +25,51 @@ A single ticket still uses a Sonnet build subagent and an Opus review subagent.
 
 **You are the orchestrator. You do not write implementation code.** You plan, gather context, spawn subagents, track them, and merge. Code changes, fixes, and rebases are done by build subagents.
 
+## Ticket tracker
+
+Before you read or write a ticket, find out which tracker this repo uses:
+
+- **GitHub Issues** if AGENTS.md has a `## Tickets` section that says GitHub Issues.
+- **Linear** if that section says Linear. If the Linear tools are not available, stop and ask. Do not fall back to GitHub Issues.
+- **No `## Tickets` section:** look for Linear MCP tools, including deferred ones (search for "linear" with ToolSearch). If they exist, use Linear, even if they need authentication first. If there are none, use GitHub Issues and say so in one line.
+
+With Linear, the Linear steps in this skill apply unchanged.
+
+With GitHub Issues, do each "Linear" step in this skill with `gh`:
+
+| Linear | GitHub Issues |
+|---|---|
+| Ticket ID `ENG-123` | Issue number `#12` |
+| Pull a ticket | `gh issue view 12 --comments` |
+| Search tickets | `gh issue list --search "<terms>" --state all` |
+| Create a ticket | `gh issue create --title "<title>" --body-file <file> --label <label>` |
+| Post a status update or comment | `gh issue comment 12 --body-file <file>` |
+| Close a ticket | `gh issue close 12 --comment "<reason>"`; add `--reason "not planned"` for obsolete work |
+| Status (Backlog, In Review, Done) | Open with no PR, open with an open PR, closed |
+| Parent and children | A `Parent: #<n>` line in the child's body, and a task list of the children in the parent's body |
+| `blocked by` / `blocks` | A `Blocked by: #<n>` line in the issue body |
+| Labels such as `agent-ready` | The labels AGENTS.md lists (`gh label list`). If a label does not exist, write it as a line in the body (`Routing: agent-ready`). Do not create labels without a yes. |
+| Project or milestone | A milestone or a label (`gh issue list --milestone <m>` or `--label <l>`) |
+
+Unless AGENTS.md says otherwise, branches are `<area>/<issue>-<slug>` (for example `sync/12-google-push-channel`), PR titles are `[#<issue>] Title`, and the PR body has `Closes #<issue>`. Drop the `#` in branch, worktree, and file names (`12-google-push-channel`).
+
+`gh` must act as the account that owns the repo. If the active `gh` account is a different one (for example a work account on a personal repo) and no hook sets `GH_TOKEN`, prefix each `gh` command with `GH_TOKEN=$(gh auth token --user <owner>)`. Never run `gh auth switch`; it changes the account for every other session.
+
 ## 1 — Pull the tickets
 
-Ask: "Which Linear ticket(s)? Give one ID, a list, or a parent ticket." Accept any of these. For a parent ticket, pull its children. Pull each ticket via the Linear MCP and confirm:
+Ask: "Which ticket(s)? Give one ID, a list, or a parent ticket." Accept any of these. For a parent ticket, pull its children (with GitHub Issues: the task list in the parent's body, plus issues whose body has `Parent: #<n>`). Pull each ticket from the tracker (see Ticket tracker) and confirm:
 
-- Each ticket is tagged `agent-ready`. A `human-required` ticket is dropped from the run and handed off to the assigned engineer; tell the user which ones.
+- Each ticket is tagged `agent-ready` (with GitHub Issues: the label, or a `Routing: agent-ready` line in the body). A `human-required` ticket is dropped from the run and handed off to the assigned engineer; tell the user which ones.
 - All tickets belong to one feature: one linked design, merged, with spec.md + context.md under `designs/<feature>/`. If the tickets span more than one feature, stop and ask the user to split the run.
-- The **parent ticket** for the collector branch: the Linear parent issue of the tickets if they have one, otherwise the design ticket they were decomposed from.
+- The **parent ticket** for the collector branch: the tickets' parent issue if they have one (Linear parent, or `Parent: #<n>` on GitHub), otherwise the design ticket they were decomposed from.
 
 ## 2 — Plan the waves
 
 Skip this step if there is only one ticket.
 
 Read the dependencies between tickets:
-- Linear `blocked by` / `blocks` relations, and the Dependencies field from `/decompose`.
-- Any build order the user gives. The user's order wins over Linear.
+- `blocked by` / `blocks` relations (Linear relations, or `Blocked by: #<n>` lines in GitHub issue bodies), and the Dependencies field from `/decompose`.
+- Any build order the user gives. The user's order wins over the tracker.
 
 Estimate the files each ticket will touch from its acceptance criteria and the Relevant code section of context.md.
 
@@ -55,6 +86,8 @@ Wave 1 (parallel): ENG-101, ENG-102, ENG-104
 Wave 2 (parallel): ENG-103 (blocked by ENG-101), ENG-105 (shares src/x.ts with ENG-102)
 Wave 3: ENG-106
 ```
+
+With GitHub Issues the IDs are issue numbers (`#101`), and the collector is `feat/<parent-issue>-<slug>`, for example `feat/12-calendar-sync`.
 
 Wait for a yes before starting. Apply any changes the user makes to the plan.
 
@@ -87,7 +120,7 @@ Also look for `build: no-auto-merge`. If it is present, you open the implementat
 
 Run the /verify-context skill once for the feature. Check spec.md and context.md for drift since the design PR merged:
 - Git log for changes to files referenced in the spec
-- Linear for new comments, decisions, or changes to any ticket in the run
+- The tracker (Linear or GitHub Issues) for new comments, decisions, or changes to any ticket in the run
 - Google Drive for new or updated documents relevant to the feature
 
 Apply the staleness threshold from review-policy.md:
@@ -100,7 +133,7 @@ Apply the staleness threshold from review-policy.md:
 Do a broad context gather anchored on spec.md and context.md, covering every ticket in the run:
 - Codebase: full files for the contact points in the spec, plus surrounding context for side effects
 - Google Drive: the feature subfolder (linked in the ticket's Sources field) and `_evergreen/`
-- Linear: ticket history and any comments since the design PR merged
+- The tracker: ticket history and any comments since the design PR merged
 - Web search and Context7/MCPs for current library documentation relevant to the spec
 
 Slack is not a context source.
@@ -115,7 +148,7 @@ For each wave, in order, and in batches of at most the cap:
 
 1. `git fetch origin`. For each ticket, create its worktree from the current collector tip:
    `git worktree add -b <branch> <main-root>/.claude/worktrees/<sub-issue-id>-<slug> origin/feat/<parent-id>-<slug>`
-   Use the AGENTS.md branch naming convention for `<branch>`; if it has none, use `<sub-issue-id>-<slug>`.
+   Use the AGENTS.md branch naming convention for `<branch>`; if it has none, use `<sub-issue-id>-<slug>` (with GitHub Issues, `<area>/<issue>-<slug>`).
 2. Spawn one build subagent per ticket, all in the same message so they run in parallel. Use the Agent tool with `model: "sonnet"`. Do not use the Agent tool's own worktree isolation; the worktree from step 1 is the one to use.
 3. Give each subagent only: AGENTS.md, spec.md, context.md, its ticket (ID, title, description, acceptance criteria), its worktree path, and its branch. Nothing from Pass 1. Its instructions:
 
@@ -134,7 +167,7 @@ For each finished branch:
 
    **Stop and ask the user** when the loop hits one of review-fix-loop's stop conditions: three rounds with majors remaining, a finding that comes back after a fix, or a fix that would change behaviour or scope beyond the ticket. Other branches continue while you wait.
 3. **/sync-docs.** Have the build subagent run /sync-docs on the branch, against the collector as the base. Doc-only gaps: accept the skill's recommended fix. A discrepancy that changes acceptance criteria, interfaces, or data flow: bring it to the user. Commit the doc updates on the branch.
-4. **Push and open the PR.** Have the build subagent push the branch and post a status update to its Linear ticket. Open the PR with `--base feat/<parent-id>-<slug>`. Never target the default branch. The PR description includes the /verify-context verdict from step 5, the review rounds and their findings by severity, anything skipped or deferred, the test result, and confirms /sync-docs ran.
+4. **Push and open the PR.** Have the build subagent push the branch and post a status update to its ticket (Linear, or `gh issue comment` on GitHub). Open the PR with `--base feat/<parent-id>-<slug>`. Never target the default branch. With GitHub Issues, title the PR `[#<issue>] <title>` (or as AGENTS.md says) and put `Closes #<issue>` in the body. GitHub closes issues only when a PR merges into the default branch, so the collector PR in step 10 repeats these lines. The PR description includes the /verify-context verdict from step 5, the review rounds and their findings by severity, anything skipped or deferred, the test result, and confirms /sync-docs ran.
 
 ## 9 — Merge into the collector
 
@@ -155,6 +188,7 @@ When the last wave has merged and the full suite passes on the collector:
 
 - Open one PR from `feat/<parent-id>-<slug>` to the default branch. If one is already open from an earlier run, update its description instead.
 - The description lists the tickets built, the PRs merged into the collector, the collector test result, and anything deferred.
+- With GitHub Issues, title it `[#<parent-issue>] <title>` and put one `Closes #<issue>` line in the body for each ticket built, and for the parent if it is still open, so they close when a human merges it. Leave out tickets that were dropped or deferred.
 - **Never merge this PR.** Stop here. A human reviews and merges it.
 
 ## 11 — Final report

@@ -1,8 +1,9 @@
 ---
 name: delegated-work-audit
-version: 1.0.0
+version: 1.1.0
 description: Compare what a teammate or agent delivered in one or more PRs against what was asked in tickets, PR comments, and instructions. Use when the user asks "did this deliver what I asked for", wants an asked-versus-delivered table, or suspects scope creep in someone's PRs.
 changelog:
+  - "1.1.0 (2026-10-09): Works with GitHub Issues as well as Linear: picks the tracker from AGENTS.md's `## Tickets` section, or uses GitHub Issues when there is no such section and no Linear MCP (deferred tools count as Linear). Linear behaviour is unchanged."
   - "1.0.0 (2026-10-03): Added to the sdlc-workflow plugin so it ships to every account from one source."
 ---
 
@@ -10,11 +11,25 @@ changelog:
 
 The user leads engineers who build with agents. Agent-built PRs often deliver more than was asked, or something different. This skill compares the ask to the delivery and helps the user respond.
 
+## Ticket tracker
+
+Before you read or write a ticket, find out which tracker this repo uses:
+
+- **GitHub Issues** if AGENTS.md has a `## Tickets` section that says GitHub Issues.
+- **Linear** if that section says Linear. If the Linear tools are not available, stop and ask. Do not fall back to GitHub Issues.
+- **No `## Tickets` section:** look for Linear MCP tools, including deferred ones (search for "linear" with ToolSearch). If they exist, use Linear, even if they need authentication first. If there are none, use GitHub Issues and say so in one line.
+
+With Linear, the Linear steps in this skill apply unchanged.
+
+With GitHub Issues, a ticket ID is the issue number (`#12`), and each "Linear" step in this skill means the GitHub issue. Read an issue with `gh issue view 12 --comments`. Search with `gh issue list --search "<terms>" --state all`.
+
+`gh` must act as the account that owns the repo. If the active `gh` account is a different one (for example a work account on a personal repo) and no hook sets `GH_TOKEN`, prefix each `gh` command with `GH_TOKEN=$(gh auth token --user <owner>)`. Never run `gh auth switch`; it changes the account for every other session.
+
 ## Step 1: Collect the asks
 
 Find every place the work was specified. Quote each ask with its source.
 
-- The Linear tickets and their acceptance criteria.
+- The tickets and their acceptance criteria (Linear, or `gh issue view <n> --comments` for GitHub Issues; a PR's `Closes #<n>` names its issue).
 - The user's PR comments and review responses (`gh pr view <n> --comments`).
 - Any instruction file the user points to (for example a saved review comment).
 - Slack or chat messages the user pastes.

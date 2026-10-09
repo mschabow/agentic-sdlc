@@ -1,8 +1,9 @@
 ---
 name: distill-context
-version: 1.2.0
+version: 1.3.0
 description: Synthesise Pass 1 context into a minimal context.md, then spawn a clean subagent for the build phase with only context.md, spec.md, and AGENTS.md loaded. This is the phase boundary between broad context gathering and predictable building — the current session's noisy Pass 1 context is never seen by the build agent.
 changelog:
+  - "1.3.0 (2026-10-09): Works with GitHub Issues: a GitHub issue is a valid context source, and the build agent posts its status with `gh issue comment` when the repo uses GitHub Issues. Linear behaviour is unchanged."
   - "1.2.0 (2026-10-03): When /build runs this skill, stop after Step 4. /build spawns the build agents itself (Sonnet, one per ticket, each in its own worktree)."
   - "1.1.0 (2026-06-18): Added schema enforcement step — context.md must conform to context-schema.md (required sections, 300-line limit, no Slack). Added local CI validation before human confirmation."
   - "1.0.0 (initial): Basic distillation and subagent spawn"
@@ -33,7 +34,7 @@ Apply these discard criteria ruthlessly — if something does not directly suppo
 
 **Size limit: 300 lines maximum.** If you cannot fit the necessary context in 300 lines, the spec is too broad. Stop and raise this with the lead.
 
-Every source must trace to Google Drive, Linear, or a specific code file. No Slack references.
+Every source must trace to Google Drive, a Linear ticket or GitHub issue, or a specific code file. No Slack references.
 
 ## Step 2 — Run CI validation locally
 
@@ -69,6 +70,6 @@ Spawn a subagent with a clean context window. Pass it exactly:
 - `designs/<feature>/context.md` — the distilled context
 
 The subagent's instructions:
-> Read AGENTS.md, spec.md, and context.md. Derive the test suite from the acceptance criteria in spec.md — use the draft test list in spec.md as the starting point and freeze it. Do not modify spec-derived tests during the build; add tests for edge cases separately. Implement the feature against context.md and the repo. When the branch is pushed, post a status update to the Linear ticket. Include the /verify-context verdict in the PR description.
+> Read AGENTS.md, spec.md, and context.md. Derive the test suite from the acceptance criteria in spec.md — use the draft test list in spec.md as the starting point and freeze it. Do not modify spec-derived tests during the build; add tests for edge cases separately. Implement the feature against context.md and the repo. When the branch is pushed, post a status update to the ticket (Linear, or `gh issue comment` for GitHub Issues). Include the /verify-context verdict in the PR description.
 
 The build agent has no access to Pass 1's context. This is intentional and enforced by the subagent boundary.

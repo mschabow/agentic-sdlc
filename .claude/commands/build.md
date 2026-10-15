@@ -1,8 +1,9 @@
 ---
 name: build
-version: 2.1.0
-description: "Entry point for the build phase. Orchestrates the full execution loop for one implementation ticket, a list, or a parent ticket with children: pulls the tickets, plans waves, runs /verify-context, does Pass 1 context gather, runs /distill-context, then builds each ticket with a Sonnet subagent in its own worktree, reviews each branch with a fresh Opus /code-review subagent, and merges into one collector branch that gets a single PR to main. Works with Linear or GitHub Issues. Run this at the start of any implementation work."
+version: 2.2.0
+description: "Entry point for the build phase. Orchestrates the full execution loop for one implementation ticket, a list, or a parent ticket with children: pulls the tickets, plans waves, runs /verify-context, does Pass 1 context gather, runs /distill-context, then builds each ticket with a Sonnet subagent in its own worktree, reviews each branch with a fresh Opus /code-review subagent, and merges into one collector branch that gets a single PR to main (or to an integration branch). Works with Linear or GitHub Issues. Run this at the start of any implementation work."
 changelog:
+  - "2.2.0 (2026-10-15): Lessons from a six-wave run. New Tests and CI check in step 2: what PR CI runs against the full suite, and whether it triggers on the collector (propose the trigger as the collector's first commit). Build subagents run the full suite only when PR CI does not cover their ticket; fix rounds run fast checks only; long test logs are checked about every two minutes. Baseline full suite on the collector before wave 1, with pre-existing failures fixed first. The collector can start from and PR into an integration branch, and the design can live on a committed branch. `human-required` tickets get a choice: drop, build and hold the merge, or build and merge. Step 8 stops the run only for spec discrepancies the deviation log does not record; everything else goes in the PR body. Merges wait for PR CI. New Running as a Workflow section with a reference script outline."
   - "2.1.0 (2026-10-09): Works with GitHub Issues as well as Linear. New Ticket tracker section: GitHub Issues when AGENTS.md's `## Tickets` section says so, or when there is no such section and no Linear MCP (deferred tools count as Linear). Issue numbers as IDs, `gh issue view` / `gh issue comment`, `[#<issue>]` PR titles with `Closes #<issue>`, and the collector PR repeats the `Closes` lines because GitHub only auto-closes on the default branch. Linear behaviour is unchanged."
   - "2.0.0 (2026-10-03): Orchestrated build. Accepts one ticket, a list, or a parent with children, and plans dependency waves. Each ticket is built by a Sonnet subagent in its own worktree (at most five at once), reviewed by a fresh Opus /code-review subagent through review-fix-loop, and merged into a collector branch; the orchestrator opens one collector-to-main PR and never merges it. New Defaults section lists the overrides. AGENTS.md can opt out of auto-merge with `build: no-auto-merge`."
   - "1.1.0 (2026-10-01): New step 0 — start in a fresh ticket-named worktree on a verified, current base."
@@ -17,9 +18,12 @@ Unless the user's prompt overrides them, every `/build` run uses these defaults:
 
 1. **Sonnet build subagents, in parallel, each in its own worktree.** Each ticket is built by its own subagent on the Sonnet model, in its own git worktree at `.claude/worktrees/<sub-issue-id>-<slug>`. Tickets in the same wave run in parallel, at most **five** build subagents at once.
 2. **Opus review on each branch.** When a build subagent finishes, a fresh subagent on the Opus model runs `/code-review` on its branch. Findings go through the `review-fix-loop` skill.
-3. **One collector branch before main.** Every implementation PR targets the collector branch `feat/<parent-ticket-id>-<slug>`, never the default branch. You open one PR from the collector to the default branch and stop. A human merges that PR.
+3. **One collector branch before main.** Every implementation PR targets the collector branch `feat/<parent-ticket-id>-<slug>`, never the base branch. You open one PR from the collector to the base branch and stop. A human merges that PR. The **base branch** is the default branch unless the user names an integration branch (step 3).
+4. **The full suite runs on the collector, not per ticket.** It runs once before wave 1 (step 3) and after each wave (step 9); those runs are the gate. A build subagent runs the tests for what it changed, and runs the full suite once only when PR CI does not run the tests that cover its ticket (step 2 finds out). Fix rounds run fast checks only. Any agent waiting on a long test run checks its log about every two minutes.
 
-The user can override any default in the prompt, for example "single agent, no subagents", "use Opus for the build", "run eight at once", or "PR straight to main". Apply only the overrides the user states, and repeat them back in the plan (step 2).
+The user can override any default in the prompt, for example "single agent, no subagents", "use Opus for the build", "run eight at once", "base the collector on `release/2`", or "PR straight to main". Apply only the overrides the user states, and repeat them back in the plan (step 2).
+
+To run the build as a Workflow script rather than from this session, see **Running as a Workflow** at the end.
 
 A single ticket still uses a Sonnet build subagent and an Opus review subagent.
 
@@ -59,13 +63,35 @@ Unless AGENTS.md says otherwise, branches are `<area>/<issue>-<slug>` (for examp
 
 Ask: "Which ticket(s)? Give one ID, a list, or a parent ticket." Accept any of these. For a parent ticket, pull its children (with GitHub Issues: the task list in the parent's body, plus issues whose body has `Parent: #<n>`). Pull each ticket from the tracker (see Ticket tracker) and confirm:
 
-- Each ticket is tagged `agent-ready` (with GitHub Issues: the label, or a `Routing: agent-ready` line in the body). A `human-required` ticket is dropped from the run and handed off to the assigned engineer; tell the user which ones.
-- All tickets belong to one feature: one linked design, merged, with spec.md + context.md under `designs/<feature>/`. If the tickets span more than one feature, stop and ask the user to split the run.
+- Each ticket is tagged `agent-ready` (with GitHub Issues: the label, or a `Routing: agent-ready` line in the body). If any are `human-required`, list them and ask the user which of these to do (once for all of them, unless the user wants to choose per ticket):
+  - **Drop** (the default): hand them off to the assigned engineer and build the rest. Tickets that depend on a dropped ticket are dropped too; name them.
+  - **Build, hold the merge:** build and review them like the others, but do not merge their PRs into the collector until the requester signs off (as `build: no-auto-merge` does, for these tickets only). Later waves that depend on them wait.
+  - **Build and merge:** the requester accepts an agent build; treat them as `agent-ready` for this run.
+
+  When dropping would leave little or nothing to build (other tickets depend on the `human-required` ones), say so in the question. Record the choice in the plan and the collector PR.
+- All tickets belong to one feature: one linked, approved design with spec.md + context.md under `designs/<feature>/`. The design is usually merged through a design PR, but it can also be committed without one, on the integration branch or a design branch the user names. If the tickets span more than one feature, stop and ask the user to split the run.
 - The **parent ticket** for the collector branch: the tickets' parent issue if they have one (Linear parent, or `Parent: #<n>` on GitHub), otherwise the design ticket they were decomposed from.
 
 ## 2 — Plan the waves
 
-Skip this step if there is only one ticket.
+With one ticket, skip the waves but still do the tests and CI check and show the plan.
+
+### Tests and CI
+
+Before planning waves, find out what testing costs and what CI already covers. Read the test commands in AGENTS.md, the CI workflow files (`.github/workflows/` or the repo's CI config), and the build targets they call (Makefile, package.json scripts):
+
+- **Full suite:** the command and how long it takes (from AGENTS.md, recent runs in `gh run list`, or ask). Running several stacks at once on one machine can double it.
+- **PR CI:** which parts of the full suite the PR workflows run, and which they skip (for example API tests that only the full suite runs).
+- **Triggers:** whether PR CI runs for PRs whose base matches the collector's pattern (for example `feat/*`), and for the collector-to-base PR. Check the `on: pull_request: branches:` filters.
+
+Decide from this, per ticket:
+
+- **PR CI runs the tests that cover the ticket's code:** the build subagent runs only the tests for what it changed, never the full suite. CI on its PR and the collector's suite after the wave cover the rest.
+- **PR CI skips them, or does not run on the collector:** the build subagent runs the full suite once, at the end of the build, before review.
+
+If PR CI does not trigger on the collector's pattern, propose adding it as the collector's first commit (step 3). Without it, PRs into the collector merge with no checks.
+
+### Waves
 
 Read the dependencies between tickets:
 - `blocked by` / `blocks` relations (Linear relations, or `Blocked by: #<n>` lines in GitHub issue bodies), and the Dependencies field from `/decompose`.
@@ -80,8 +106,11 @@ A wave with more than the cap (five by default) runs in batches of five.
 Show the plan to the user:
 
 ```
-Collector: feat/<parent-id>-<slug>  →  PR to <default-branch> (human merges)
+Collector: feat/<parent-id>-<slug>  from <base-branch>  →  PR to <base-branch> (human merges)
 Overrides: <none | the ones the user gave>
+human-required: <none | tickets and the choice>
+Tests: full suite `<command>` (~<n> min); PR CI runs <parts>, skips <parts>; triggers on collector: <yes | no, trigger commit proposed>
+Full suite in build: <no ticket | ENG-101, ENG-104>
 Wave 1 (parallel): ENG-101, ENG-102, ENG-104
 Wave 2 (parallel): ENG-103 (blocked by ENG-101), ENG-105 (shares src/x.ts with ENG-102)
 Wave 3: ENG-106
@@ -96,17 +125,21 @@ Wait for a yes before starting. Apply any changes the user makes to the plan.
 Create or reuse the collector branch and do all orchestration work in its worktree. Never work in the main checkout.
 
 - `git fetch origin`. Find the default branch with `git symbolic-ref refs/remotes/origin/HEAD` (or `gh repo view --json defaultBranchRef`).
-- If `origin/feat/<parent-id>-<slug>` exists (an earlier run started it), reuse it. Otherwise create it from `origin/<default-branch>`.
+- Pick the **base branch**: the default branch, unless the user names an integration branch, for example a long-running feature branch that holds code the default branch does not have yet. The collector starts from the base branch and its PR (step 10) goes back into it. If the tickets' code exists only on a branch other than the default, ask which branch to use.
+- If `origin/feat/<parent-id>-<slug>` exists (an earlier run started it), reuse it. Otherwise create it from `origin/<base-branch>`.
 - Create the collector worktree at `.claude/worktrees/<parent-id>-<slug>`:
   - **Preferred:** the EnterWorktree tool with that name, then check out or reset to the collector branch.
-  - **Fallback:** `git worktree add -b feat/<parent-id>-<slug> .claude/worktrees/<parent-id>-<slug> origin/<default-branch>` (or `git worktree add .claude/worktrees/<parent-id>-<slug> feat/<parent-id>-<slug>` when reusing it).
+  - **Fallback:** `git worktree add -b feat/<parent-id>-<slug> .claude/worktrees/<parent-id>-<slug> origin/<base-branch>` (or `git worktree add .claude/worktrees/<parent-id>-<slug> feat/<parent-id>-<slug>` when reusing it).
 - Make sure `.claude/worktrees/` is in `.gitignore`. If it is not, add it in the collector's first commit.
+- If step 2 found that PR CI does not trigger on the collector and the user agreed to the fix, add the collector's pattern to the CI trigger in the collector's first commit. If the workflow files are restricted in AGENTS.md, or the user declined, note that PRs into the collector have no CI and rely on the collector's suite.
 
 Verify the base before continuing:
-- For a new collector, confirm `git rev-parse HEAD` matches `git rev-parse origin/<default-branch>`. If the worktree is behind (e.g. EnterWorktree branched off a stale local ref), reset the new, still-empty branch to `origin/<default-branch>`.
-- Confirm the expected app directories are present (the top-level layout described in AGENTS.md or the README), along with the merged design under `designs/<feature>/`. If any are missing, stop and tell the human — the worktree is on the wrong base or repo.
+- For a new collector, confirm `git rev-parse HEAD` matches `git rev-parse origin/<base-branch>`. If the worktree is behind (e.g. EnterWorktree branched off a stale local ref), reset the new, still-empty branch to `origin/<base-branch>`.
+- Confirm the expected app directories are present (the top-level layout described in AGENTS.md or the README), along with the design under `designs/<feature>/`. If the design was committed on a separate design branch that the base does not contain, ask the user whether to bring it into the collector (merge or cherry-pick) as its first commit. If anything else is missing, stop and tell the human — the worktree is on the wrong base or repo.
 
-Push the collector branch so the implementation PRs have a base. Report the collector worktree path, branch name, and base commit to the human.
+**Baseline.** Run the full test suite once in the collector worktree before any build starts. If it fails, stop: the failures are pre-existing, and every build and every collector run after them would hit them again. Report them. With the user's yes, have a build subagent fix them, on the base branch through its own PR or as a collector commit, whichever the user prefers; then re-run the suite. Tests that depend on today's date or the clock are a common cause: a test that passed last week fails on the day of the run. Record the baseline result for the final report.
+
+Push the collector branch so the implementation PRs have a base. Report the collector worktree path, branch name, base branch, base commit, and baseline result to the human.
 
 All ticket worktrees go in `.claude/worktrees/` at the root of the **main** checkout (`git rev-parse --git-common-dir` gives its `.git`), not inside the collector worktree.
 
@@ -152,11 +185,13 @@ For each wave, in order, and in batches of at most the cap:
 2. Spawn one build subagent per ticket, all in the same message so they run in parallel. Use the Agent tool with `model: "sonnet"`. Do not use the Agent tool's own worktree isolation; the worktree from step 1 is the one to use.
 3. Give each subagent only: AGENTS.md, spec.md, context.md, its ticket (ID, title, description, acceptance criteria), its worktree path, and its branch. Nothing from Pass 1. Its instructions:
 
-> Work only in `<worktree path>`, on branch `<branch>`. Never touch the main checkout or another worktree. Read AGENTS.md, spec.md, and context.md. Derive the tests for this ticket from its acceptance criteria and the draft test list in spec.md, and freeze them. Do not modify spec-derived tests during the build; add tests for edge cases separately. Implement the ticket against context.md and the repo. Run the test suite. Commit to `<branch>`, but do not push and do not open a PR. Report: what you built, the files changed, the test command and result, and anything you could not do.
+> Work only in `<worktree path>`, on branch `<branch>`. Never touch the main checkout or another worktree. Read AGENTS.md, spec.md, and context.md. Derive the tests for this ticket from its acceptance criteria and the draft test list in spec.md, and freeze them. Do not modify spec-derived tests during the build; add tests for edge cases separately. Implement the ticket against context.md and the repo. Run the tests for what you changed{, then the full suite `<command>` once at the end}. When a test run takes more than a few minutes, check its log about every two minutes. If a test fails that also fails on the collector without your change, do not fix it; report it as pre-existing. Commit to `<branch>`, but do not push and do not open a PR. Report: what you built, the files changed, the test commands and results, and anything you could not do.
+
+Include the part in braces only for tickets that step 2 marked for a full suite run.
 
 As each build subagent finishes, start step 8 for its branch. Do not wait for the rest of the batch. When a batch slot frees up, start the next ticket in the wave.
 
-If a build subagent fails or reports a blocker, do not take over the code. Re-brief it (SendMessage), or stop that ticket and report it to the user. Other tickets in the wave continue.
+If a build subagent fails or reports a blocker, do not take over the code. Re-brief it (SendMessage), or stop that ticket and report it to the user. Other tickets in the wave continue. A pre-existing test failure is not a blocker; it goes in the PR body (step 8).
 
 ## 8 — Review, sync docs, open the PR
 
@@ -165,9 +200,13 @@ For each finished branch:
 1. **Review.** Spawn a new subagent with `model: "opus"`. It must not be the subagent that wrote the code. It runs `/code-review` on `<branch>` in `<worktree path>`, against `feat/<parent-id>-<slug>` as the base, and returns the findings with severities. Review subagents do not count toward the build cap.
 2. **Fix loop.** Run the findings through the `review-fix-loop` skill. You make the decisions the skill would ask the user for: which findings to fix, skip, or defer. You do not stop to ask the user about each finding. Send the fixes to the ticket's build subagent (SendMessage), working in the same worktree. Each new review round uses a fresh Opus subagent. Stop when no blocker or major findings remain.
 
+   Fix rounds run fast checks only: the tests that cover the fixed code, plus lint and type checks. They do not run the full suite; CI on the PR and the collector's suite after the wave are the gate.
+
    **Stop and ask the user** when the loop hits one of review-fix-loop's stop conditions: three rounds with majors remaining, a finding that comes back after a fix, or a fix that would change behaviour or scope beyond the ticket. Other branches continue while you wait.
-3. **/sync-docs.** Have the build subagent run /sync-docs on the branch, against the collector as the base. Doc-only gaps: accept the skill's recommended fix. A discrepancy that changes acceptance criteria, interfaces, or data flow: bring it to the user. Commit the doc updates on the branch.
-4. **Push and open the PR.** Have the build subagent push the branch and post a status update to its ticket (Linear, or `gh issue comment` on GitHub). Open the PR with `--base feat/<parent-id>-<slug>`. Never target the default branch. With GitHub Issues, title the PR `[#<issue>] <title>` (or as AGENTS.md says) and put `Closes #<issue>` in the body. GitHub closes issues only when a PR merges into the default branch, so the collector PR in step 10 repeats these lines. The PR description includes the /verify-context verdict from step 5, the review rounds and their findings by severity, anything skipped or deferred, the test result, and confirms /sync-docs ran.
+3. **/sync-docs.** Have the build subagent run /sync-docs on the branch, against the collector as the base. Doc-only gaps: accept the skill's recommended fix. Commit the doc updates on the branch.
+
+   **Escalations and notes.** Stop and bring a finding to the user only when it is a discrepancy that changes acceptance criteria, interfaces, or data flow **and** the spec's deviation log does not already record it. Everything else is a note: it goes in the PR body under **Notes**, and the ticket continues. Notes include pre-existing test failures (they also fail on the collector without the change), environment problems (a slow machine, a missing local service, a flaky network), and interpretation choices that the spec or its deviation log already documents. This rule applies to whatever the build subagent reports at any step, not only to /sync-docs.
+4. **Push and open the PR.** Have the build subagent push the branch and post a status update to its ticket (Linear, or `gh issue comment` on GitHub). Open the PR with `--base feat/<parent-id>-<slug>`. Never target the default branch. With GitHub Issues, title the PR `[#<issue>] <title>` (or as AGENTS.md says) and put `Closes #<issue>` in the body. GitHub closes issues only when a PR merges into the default branch, so the collector PR in step 10 repeats these lines. The PR description includes the /verify-context verdict from step 5, the review rounds and their findings by severity, anything skipped or deferred, the test result, the Notes, and confirms /sync-docs ran.
 
 ## 9 — Merge into the collector
 

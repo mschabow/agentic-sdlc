@@ -1,0 +1,109 @@
+# Reusable CRAP scan. A calling repo runs its own tests with coverage, uploads the coverage files
+# as an artifact, then calls this workflow. On a pull request it reports the changed functions;
+# on any other event it reports the whole repository. CRAP never fails the job. The complexity
+# gate fails it only when the caller sets `block: true`. See quality/crap/README.md.
+name: crap
+
+on:
+  workflow_call:
+    inputs:
+      paths:
+        description: Source paths to analyse, space-separated (e.g. "src server/app").
+        type: string
+        required: true
+      coverage-artifact:
+        description: Name of an artifact holding coverage files from the caller's test job. Empty means no coverage.
+        type: string
+        default: ""
+      measured:
+        description: Space-separated path prefixes the test run could observe. Functions elsewhere are reported as unmeasured.
+        type: string
+        default: ""
+      languages:
+        description: Space-separated lizard languages to analyse (e.g. "csharp python typescript"). Empty means every language lizard knows.
+        type: string
+        default: ""
+      lizard-exclude:
+        description: Newline-separated glob patterns lizard skips (tests, generated code, migrations).
+        type: string
+        default: ""
+      exclude:
+        description: Newline-separated regexes; matching file paths are dropped from the report.
+        type: string
+        default: ""
+      ceiling:
+        description: Complexity ceiling for new functions and for edited functions that get more complex.
+        type: number
+        default: 10
+      block:
+        description: Fail the job when the complexity gate fails.
+        type: boolean
+        default: false
+      tools-ref:
+        description: Ref of mschabow/agentic-sdlc to take the scoring script from. Pin it to the same commit as the `uses:` line.
+        type: string
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  crap:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: mschabow/agentic-sdlc
+          ref: ${{ inputs.tools-ref }}
+          path: .crap-tools
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install the pinned tools
+        run: python -m pip install --quiet --require-hashes --no-deps -r .crap-tools/quality/crap/requirements.txt
+      - name: Download coverage
+        if: inputs.coverage-artifact != ''
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ inputs.coverage-artifact }}
+          path: .crap-coverage
+      - name: Score and report
+        env:
+          PATHS: ${{ inputs.paths }}
+          MEASURED: ${{ inputs.measured }}
+          LANGUAGES: ${{ inputs.languages }}
+          LIZARD_EXCLUDE: ${{ inputs.lizard-exclude }}
+          EXCLUDE: ${{ inputs.exclude }}
+          CEILING: ${{ inputs.ceiling }}
+          BLOCK: ${{ inputs.block }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          args=(--repo . --ceiling "$CEILING" --out crap-scores.csv --summary "$GITHUB_STEP_SUMMARY")
+          read -ra paths <<< "$PATHS"; args+=(--paths "${paths[@]}")
+          if [ -n "$MEASURED" ]; then read -ra measured <<< "$MEASURED"; args+=(--measured "${measured[@]}"); fi
+          args+=(--lizard-arg=-x --lizard-arg='./.crap-*')
+          for l in $LANGUAGES; do args+=(--lizard-arg=-l "--lizard-arg=$l"); done
+          while IFS= read -r g; do [ -n "$g" ] && args+=(--lizard-arg=-x "--lizard-arg=$g"); done <<< "$LIZARD_EXCLUDE"
+          excl=(); while IFS= read -r r; do [ -n "$r" ] && excl+=("$r"); done <<< "$EXCLUDE"
+          [ ${#excl[@]} -gt 0 ] && args+=(--exclude "${excl[@]}")
+          if [ -d .crap-coverage ]; then
+            mapfile -t files < <(find .crap-coverage -type f \( -name '*.xml' -o -name '*.json' \))
+            [ ${#files[@]} -gt 0 ] && args+=(--coverage "${files[@]}")
+          fi
+          [ -n "$BASE_SHA" ] && args+=(--base "$BASE_SHA")
+          [ "$BLOCK" = "true" ] && args+=(--block)
+          python .crap-tools/quality/crap/crap.py "${args[@]}"
+      - name: Upload scores
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: crap-scores
+          path: crap-scores.csv
+          if-no-files-found: ignore

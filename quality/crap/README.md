@@ -48,6 +48,7 @@ jobs:
     with:
       tools-ref: <same commit sha>
       paths: src
+      languages: csharp
       coverage-artifact: coverage
       measured: src/
       lizard-exclude: |

@@ -19,6 +19,10 @@ on:
         description: Space-separated path prefixes the test run could observe. Functions elsewhere are reported as unmeasured.
         type: string
         default: ""
+      languages:
+        description: Space-separated lizard languages to analyse (e.g. "csharp python typescript"). Empty means every language lizard knows.
+        type: string
+        default: ""
       lizard-exclude:
         description: Newline-separated glob patterns lizard skips (tests, generated code, migrations).
         type: string
@@ -73,6 +77,7 @@ jobs:
         env:
           PATHS: ${{ inputs.paths }}
           MEASURED: ${{ inputs.measured }}
+          LANGUAGES: ${{ inputs.languages }}
           LIZARD_EXCLUDE: ${{ inputs.lizard-exclude }}
           EXCLUDE: ${{ inputs.exclude }}
           CEILING: ${{ inputs.ceiling }}
@@ -84,6 +89,7 @@ jobs:
           read -ra paths <<< "$PATHS"; args+=(--paths "${paths[@]}")
           if [ -n "$MEASURED" ]; then read -ra measured <<< "$MEASURED"; args+=(--measured "${measured[@]}"); fi
           args+=(--lizard-arg=-x --lizard-arg='./.crap-*')
+          for l in $LANGUAGES; do args+=(--lizard-arg=-l "--lizard-arg=$l"); done
           while IFS= read -r g; do [ -n "$g" ] && args+=(--lizard-arg=-x "--lizard-arg=$g"); done <<< "$LIZARD_EXCLUDE"
           excl=(); while IFS= read -r r; do [ -n "$r" ] && excl+=("$r"); done <<< "$EXCLUDE"
           [ ${#excl[@]} -gt 0 ] && args+=(--exclude "${excl[@]}")
